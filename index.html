@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parent View - Live GPS Tracker</title>
+    <title>Live GPS Tracker - Parent</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -11,7 +11,6 @@
     <style>
         body { font-family: 'Inter', sans-serif; }
         #map { height: 100vh; width: 100vw; z-index: 10; }
-        .hidden { display: none; }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -22,7 +21,7 @@
         <div class="absolute top-4 left-1/2 -translate-x-1/2 z-20 w-11/12 max-w-sm">
             <div class="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
                 <div class="flex items-center justify-between">
-                    <h1 class="text-lg font-bold text-gray-800">Live Bus Tracker (BUS-42)</h1>
+                    <h1 class="text-lg font-bold text-gray-800">Live Bus Tracker</h1>
                     <div class="flex items-center space-x-2">
                         <span id="parent-status-indicator" class="h-3 w-3 rounded-full bg-gray-400"></span>
                         <span id="parent-status-text" class="text-sm font-semibold text-gray-600">Connecting...</span>
@@ -39,15 +38,14 @@
         import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ============== PASTE YOUR FIREBASE CONFIG HERE ==============
-        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
         const firebaseConfig = {
-          apiKey: "AIzaSyCISwXAdb9w44Wsa2caXbP9XPyQ3U-Yhl4",
-          authDomain: "new-gps-bus.firebaseapp.com",
-          projectId: "new-gps-bus",
-          storageBucket: "new-gps-bus.firebasestorage.app",
-          messagingSenderId: "993768802913",
-          appId: "1:993768802913:web:5420a64038b6682b273820",
-          measurementId: "G-06RLW2QNT6"
+            apiKey: "AIzaSyAySXFbhyajAE7qcSyjGRcbF8jejG2GAFw",
+            authDomain: "appify-3b358.firebaseapp.com",
+            projectId: "appify-3b358",
+            storageBucket: "appify-3b358.appspot.com",
+            messagingSenderId: "1040554600495",
+            appId: "1:1040554600495:web:71afd390d47d562a333eda",
+            measurementId: "G-4WH3BW00XN"
         };
         // =============================================================
 
@@ -57,10 +55,6 @@
         let map = null;
         let busMarker = null;
 
-        // --- UI Elements ---
-        const statusIndicator = document.getElementById('parent-status-indicator');
-        const statusText = document.getElementById('parent-status-text');
-
         // --- App Initialization ---
         async function initializeParentApp() {
             try {
@@ -69,23 +63,20 @@
                 db = getFirestore(app);
                 await signInAnonymously(auth);
                 console.log("Firebase Authenticated Anonymously.");
-                initializeMapView();
+                initializeParentView(); // Initialize map and listener after auth
             } catch (error) {
                 console.error("CRITICAL: Firebase Init or Auth Failed!", error);
-                statusText.textContent = 'Connection Error';
-                statusIndicator.className = 'h-3 w-3 rounded-full bg-red-500';
+                document.getElementById('parent-status-text').textContent = "Connection Failed";
+                alert("Could not connect to the service. Please check the console for errors.");
             }
         }
         
-
         // --- Parent/Tracker Logic ---
-        function initializeMapView() {
+        function initializeParentView() {
             if (map) return; // Initialize only once
 
             map = L.map('map').setView([26.1445, 91.7362], 13); // Default view (Guwahati, Assam)
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(map);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
             
             listenForBusLocation();
         }
@@ -93,6 +84,9 @@
         function listenForBusLocation() {
             const busRef = doc(db, "buses", busId);
             onSnapshot(busRef, (doc) => {
+                const statusIndicator = document.getElementById('parent-status-indicator');
+                const statusText = document.getElementById('parent-status-text');
+
                 if (doc.exists()) {
                     const data = doc.data();
                     
@@ -122,24 +116,14 @@
                         }
                     }
                 } else {
-                    statusText.textContent = 'Waiting for Bus';
+                    statusText.textContent = 'Waiting for data';
                     statusIndicator.className = 'h-3 w-3 rounded-full bg-gray-400';
-                    if (busMarker) {
-                        map.removeLayer(busMarker);
-                        busMarker = null;
-                    }
                 }
-            }, (error) => {
-                console.error("Firestore Snapshot Error:", error);
-                statusText.textContent = 'Data Error';
-                statusIndicator.className = 'h-3 w-3 rounded-full bg-red-500';
             });
         }
 
-        // --- Start the app ---
+        // --- Initialize the app ---
         initializeParentApp();
-
     </script>
 </body>
 </html>
-
