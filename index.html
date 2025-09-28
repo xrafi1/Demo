@@ -3,300 +3,143 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panel - Rafi University</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>Parent View - Live GPS Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
-        .label {
-            @apply block text-sm font-medium text-gray-700 mb-1;
-        }
-        .input, .textarea {
-            @apply mt-1 block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm;
-        }
-        .textarea {
-            min-height: 120px;
-        }
-        /* Sidebar styles */
-        .sidebar-link {
-            @apply flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors;
-        }
-        .sidebar-link.active {
-            @apply bg-blue-600 text-white font-semibold;
-        }
-        /* Main content panel display logic */
-        .content-panel {
-            display: none;
-        }
-        .content-panel.active {
-            display: block;
-        }
+        #map { height: 100vh; width: 100vw; z-index: 10; }
+        .hidden { display: none; }
     </style>
 </head>
 <body class="bg-gray-100">
 
-    <!-- Login Screen -->
-    <div id="auth-screen" class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-md w-full space-y-8 p-10 bg-white shadow-lg rounded-xl">
-            <div>
-                <img class="mx-auto h-12 w-auto rounded-full" src="https://i.ibb.co/r2tP3wzb/Blue-Modern-Initials-Letter-A-University-Logo.png" alt="Logo">
-                <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                    Admin Panel Login
-                </h2>
+    <!-- Parent/Tracker View -->
+    <div id="parent-view">
+        <div id="map"></div>
+        <div class="absolute top-4 left-1/2 -translate-x-1/2 z-20 w-11/12 max-w-sm">
+            <div class="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h1 class="text-lg font-bold text-gray-800">Live Bus Tracker (BUS-42)</h1>
+                    <div class="flex items-center space-x-2">
+                        <span id="parent-status-indicator" class="h-3 w-3 rounded-full bg-gray-400"></span>
+                        <span id="parent-status-text" class="text-sm font-semibold text-gray-600">Connecting...</span>
+                    </div>
+                </div>
             </div>
-            <form class="mt-8 space-y-6" onsubmit="return false;">
-                <div>
-                    <label for="email" class="label">Email address</label>
-                    <input id="email" name="email" type="email" autocomplete="email" required class="input" placeholder="admin@example.com">
-                </div>
-                <div>
-                    <label for="password" class="label">Password</label>
-                    <input id="password" name="password" type="password" autocomplete="current-password" required class="input" placeholder="Password">
-                </div>
-                <div>
-                    <button id="login-button" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                        Sign in
-                    </button>
-                    <p id="auth-error" class="text-red-500 text-sm mt-2 text-center"></p>
-                </div>
-            </form>
         </div>
     </div>
 
-    <!-- Main Admin Panel -->
-    <div id="admin-panel" class="hidden">
-        <div class="flex h-screen bg-gray-200">
-            <!-- Sidebar -->
-            <aside class="w-64 bg-white shadow-md flex-shrink-0">
-                <div class="p-4 flex items-center space-x-3 border-b">
-                    <img src="https://i.ibb.co/r2tP3wzb/Blue-Modern-Initials-Letter-A-University-Logo.png" alt="Logo" class="h-10 w-10 rounded-full">
-                    <span class="text-xl font-bold text-gray-800">Admin Menu</span>
-                </div>
-                <nav id="sidebar-nav" class="p-4 space-y-2">
-                    <a href="#hero" class="sidebar-link active" data-target="panel-hero">
-                        <svg class="h-5 w-5 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" /></svg>
-                        Hero
-                    </a>
-                    <a href="#about" class="sidebar-link" data-target="panel-about">
-                         <svg class="h-5 w-5 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        About Us
-                    </a>
-                    <a href="#leadership" class="sidebar-link" data-target="panel-leadership">
-                         <svg class="h-5 w-5 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M15 21a6 6 0 00-9-5.197M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                        Leadership
-                    </a>
-                    <a href="#vision" class="sidebar-link" data-target="panel-vision">
-                        <svg class="h-5 w-5 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                        Vision & Mission
-                    </a>
-                    <a href="#stats" class="sidebar-link" data-target="panel-stats">
-                        <svg class="h-5 w-5 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>
-                        Statistics
-                    </a>
-                    <a href="#features" class="sidebar-link" data-target="panel-features">
-                        <svg class="h-5 w-5 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
-                        Features
-                    </a>
-                </nav>
-                <div class="p-4 mt-auto border-t">
-                     <button id="logout-button" class="w-full flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700">
-                        <svg class="h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                        Logout
-                    </button>
-                </div>
-            </aside>
-
-            <!-- Main Content -->
-            <main class="flex-1 overflow-y-auto p-4 md:p-8">
-                 <form id="content-form">
-                    <!-- Hero Section Panel -->
-                    <div id="panel-hero" class="content-panel active bg-white p-6 rounded-lg shadow-lg">
-                        <h2 class="text-2xl font-bold mb-6 border-b pb-4">Hero Section</h2>
-                        <div class="space-y-4">
-                            <div><label for="heroTitle" class="label">Hero Title</label><input type="text" id="heroTitle" class="input"></div>
-                            <div><label for="carouselImages" class="label">Carousel Image URLs (one per line)</label><textarea id="carouselImages" class="textarea"></textarea></div>
-                        </div>
-                    </div>
-
-                    <!-- About Us Section Panel -->
-                    <div id="panel-about" class="content-panel bg-white p-6 rounded-lg shadow-lg">
-                        <h2 class="text-2xl font-bold mb-6 border-b pb-4">About Us Section</h2>
-                        <div class="space-y-4">
-                            <div><label for="aboutUsImage" class="label">Image URL</label><input type="text" id="aboutUsImage" class="input"></div>
-                            <div><label for="aboutUsText" class="label">About Us Text</label><textarea id="aboutUsText" class="textarea"></textarea></div>
-                        </div>
-                    </div>
-
-                     <!-- Leadership Section Panel -->
-                    <div id="panel-leadership" class="content-panel bg-white p-6 rounded-lg shadow-lg">
-                        <h2 class="text-2xl font-bold mb-6 border-b pb-4">Leadership Messages</h2>
-                        <div class="grid md:grid-cols-2 gap-6">
-                            <div class="p-4 border rounded-md">
-                                <h3 class="text-lg font-semibold mb-4">Principal's Message</h3>
-                                <div class="space-y-4">
-                                    <div><label for="principalName" class="label">Name</label><input type="text" id="principalName" class="input"></div>
-                                    <div><label for="principalTitle" class="label">Title</label><input type="text" id="principalTitle" class="input"></div>
-                                    <div><label for="principalImage" class="label">Image URL</label><input type="text" id="principalImage" class="input"></div>
-                                    <div><label for="principalMessage" class="label">Message</label><textarea id="principalMessage" class="textarea"></textarea></div>
-                                </div>
-                            </div>
-                            <div class="p-4 border rounded-md">
-                                <h3 class="text-lg font-semibold mb-4">Director's Message</h3>
-                                <div class="space-y-4">
-                                    <div><label for="directorName" class="label">Name</label><input type="text" id="directorName" class="input"></div>
-                                    <div><label for="directorTitle" class="label">Title</label><input type="text" id="directorTitle" class="input"></div>
-                                    <div><label for="directorImage" class="label">Image URL</label><input type="text" id="directorImage" class="input"></div>
-                                    <div><label for="directorMessage" class="label">Message</label><textarea id="directorMessage" class="textarea"></textarea></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                     <!-- Vision & Mission Section Panel -->
-                    <div id="panel-vision" class="content-panel bg-white p-6 rounded-lg shadow-lg">
-                        <h2 class="text-2xl font-bold mb-6 border-b pb-4">Vision & Mission</h2>
-                         <div class="grid md:grid-cols-2 gap-6">
-                            <div class="p-4 border rounded-md">
-                                <h3 class="text-lg font-semibold mb-4">Our Vision</h3>
-                                <div class="space-y-4">
-                                    <div><label for="visionImage" class="label">Image URL</label><input type="text" id="visionImage" class="input"></div>
-                                    <div><label for="visionText" class="label">Text</label><textarea id="visionText" class="textarea"></textarea></div>
-                                </div>
-                            </div>
-                            <div class="p-4 border rounded-md">
-                                <h3 class="text-lg font-semibold mb-4">Our Mission</h3>
-                                <div class="space-y-4">
-                                    <div><label for="missionImage" class="label">Image URL</label><input type="text" id="missionImage" class="input"></div>
-                                    <div><label for="missionText" class="label">Text</label><textarea id="missionText" class="textarea"></textarea></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Statistics Panel -->
-                    <div id="panel-stats" class="content-panel bg-white p-6 rounded-lg shadow-lg">
-                        <h2 class="text-2xl font-bold mb-6 border-b pb-4">Statistics</h2>
-                         <div class="grid md:grid-cols-2 gap-6">
-                             <div class="p-4 border rounded-md">
-                                <h3 class="text-lg font-semibold mb-4">Total Students Stat</h3>
-                                <div class="space-y-4">
-                                    <div><label for="statsStudentsNumber" class="label">Number (e.g., 550+)</label><input type="text" id="statsStudentsNumber" class="input"></div>
-                                    <div><label for="statsStudentsText" class="label">Text</label><textarea id="statsStudentsText" class="textarea"></textarea></div>
-                                </div>
-                            </div>
-                             <div class="p-4 border rounded-md">
-                                <h3 class="text-lg font-semibold mb-4">Passout Students Stat</h3>
-                                <div class="space-y-4">
-                                    <div><label for="statsPassoutNumber" class="label">Number (e.g., 36)</label><input type="text" id="statsPassoutNumber" class="input"></div>
-                                    <div><label for="statsPassoutText" class="label">Text</label><textarea id="statsPassoutText" class="textarea"></textarea></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Features Panel -->
-                     <div id="panel-features" class="content-panel bg-white p-6 rounded-lg shadow-lg">
-                        <h2 class="text-2xl font-bold mb-6 border-b pb-4">Special Features</h2>
-                         <div class="p-4 border rounded-md">
-                            <h3 class="text-lg font-semibold mb-4">Feature List (one per line)</h3>
-                            <textarea id="features" class="textarea" placeholder="Qualified and experienced teachers.&#10;Disciplined and quality education."></textarea>
-                        </div>
-                    </div>
-                    
-                    <!-- Save Button Footer -->
-                    <div class="mt-8 flex justify-end pt-6 border-t border-gray-300">
-                        <button type="submit" id="save-button" class="w-48 h-12 flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-bold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all">
-                            <span class="button-text">Save Changes</span>
-                            <svg class="h-5 w-5 ml-2 button-icon-saving hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 20v-5h-5" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12a8 8 0 018-8h0a8 8 0 018 8v0a8 8 0 01-8 8h-4" /></svg>
-                             <svg class="h-6 w-6 button-icon-saved hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-                        </button>
-                    </div>
-                </form>
-            </main>
-        </div>
-    </div>
-
-    <!-- Firebase SDK -->
     <script type="module">
+        // Import Firebase modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Your web app's Firebase configuration
+        // ============== PASTE YOUR FIREBASE CONFIG HERE ==============
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
         const firebaseConfig = {
-            apiKey: "AIzaSyBDfUlGCHgBjGWNlLQcrRio5xaBjEadRkQ",
-            authDomain: "video-of-fan.firebaseapp.com",
-            projectId: "video-of-fan",
-            storageBucket: "video-of-fan.appspot.com",
-            messagingSenderId: "60721213995",
-            appId: "1:60721213995:web:019d65235e3089bd02b06e",
-            measurementId: "G-MQQDH704K2"
+          apiKey: "AIzaSyCISwXAdb9w44Wsa2caXbP9XPyQ3U-Yhl4",
+          authDomain: "new-gps-bus.firebaseapp.com",
+          projectId: "new-gps-bus",
+          storageBucket: "new-gps-bus.firebasestorage.app",
+          messagingSenderId: "993768802913",
+          appId: "1:993768802913:web:5420a64038b6682b273820",
+          measurementId: "G-06RLW2QNT6"
         };
-        
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+        // =============================================================
 
-        const contentRef = doc(db, "websiteContent", "mainPage");
+        // --- Global Variables ---
+        const busId = "BUS-42";
+        let db, auth;
+        let map = null;
+        let busMarker = null;
 
-        const authScreen = document.getElementById('auth-screen');
-        const adminPanel = document.getElementById('admin-panel');
-        
-        onAuthStateChanged(auth, user => {
-            if (user) {
-                authScreen.style.display = 'none';
-                adminPanel.style.display = 'block';
-                loadContent();
-            } else {
-                authScreen.style.display = 'flex';
-                adminPanel.style.display = 'none';
-            }
-        });
+        // --- UI Elements ---
+        const statusIndicator = document.getElementById('parent-status-indicator');
+        const statusText = document.getElementById('parent-status-text');
 
-        document.getElementById('login-button').addEventListener('click', async () => {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const errorEl = document.getElementById('auth-error');
-            errorEl.textContent = '';
+        // --- App Initialization ---
+        async function initializeParentApp() {
             try {
-                await signInWithEmailAndPassword(auth, email, password);
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                await signInAnonymously(auth);
+                console.log("Firebase Authenticated Anonymously.");
+                initializeMapView();
             } catch (error) {
-                console.error("Login failed:", error);
-                errorEl.textContent = 'Login failed. Please check your credentials.';
-            }
-        });
-
-        document.getElementById('logout-button').addEventListener('click', () => {
-            signOut(auth);
-        });
-
-        async function loadContent() {
-            try {
-                const docSnap = await getDoc(contentRef);
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    for (const key in data) {
-                        const el = document.getElementById(key);
-                        if (el) {
-                           if (Array.isArray(data[key])) {
-                                el.value = data[key].join('\n');
-                            } else {
-                                el.value = data[key];
-                            }
-                        }
-                    }
-                } else {
-                    console.log("No content document yet. Saving will create it.");
-                }
-            } catch (error) {
-                console.error("Error loading content:", error);
-                alert("Could not load content.");
+                console.error("CRITICAL: Firebase Init or Auth Failed!", error);
+                statusText.textContent = 'Connection Error';
+                statusIndicator.className = 'h-3 w-3 rounded-full bg-red-500';
             }
         }
         
-        document.getElementById('content-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const saveButton = document.getElementById('save-button');
-            const buttonText = saveButton.querySelector('.button-text');
-            const savingIcon = saveButton.querySelector('.button-icon-saving');
-            const savedIcon =
+
+        // --- Parent/Tracker Logic ---
+        function initializeMapView() {
+            if (map) return; // Initialize only once
+
+            map = L.map('map').setView([26.1445, 91.7362], 13); // Default view (Guwahati, Assam)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            
+            listenForBusLocation();
+        }
+
+        function listenForBusLocation() {
+            const busRef = doc(db, "buses", busId);
+            onSnapshot(busRef, (doc) => {
+                if (doc.exists()) {
+                    const data = doc.data();
+                    
+                    // Update status text and indicator
+                    statusIndicator.className = 'h-3 w-3 rounded-full';
+                    if (data.status === 'en-route') {
+                        statusText.textContent = 'En Route';
+                        statusIndicator.classList.add('bg-green-500', 'animate-pulse');
+                    } else {
+                        statusText.textContent = 'Offline';
+                        statusIndicator.classList.add('bg-red-500');
+                    }
+
+                    // Update map marker
+                    if (data.status === 'en-route' && data.lat && data.lng) {
+                        const newPosition = [data.lat, data.lng];
+                        const busIcon = L.icon({
+                            iconUrl: 'https://placehold.co/40x40/facc15/000000?text=BUS&font=inter',
+                            iconSize: [40, 40], iconAnchor: [20, 20],
+                        });
+                        if (!busMarker) {
+                            busMarker = L.marker(newPosition, { icon: busIcon }).addTo(map);
+                            map.setView(newPosition, 16);
+                        } else {
+                            busMarker.setLatLng(newPosition);
+                            map.panTo(newPosition);
+                        }
+                    }
+                } else {
+                    statusText.textContent = 'Waiting for Bus';
+                    statusIndicator.className = 'h-3 w-3 rounded-full bg-gray-400';
+                    if (busMarker) {
+                        map.removeLayer(busMarker);
+                        busMarker = null;
+                    }
+                }
+            }, (error) => {
+                console.error("Firestore Snapshot Error:", error);
+                statusText.textContent = 'Data Error';
+                statusIndicator.className = 'h-3 w-3 rounded-full bg-red-500';
+            });
+        }
+
+        // --- Start the app ---
+        initializeParentApp();
+
+    </script>
+</body>
+</html>
+
