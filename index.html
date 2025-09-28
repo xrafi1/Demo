@@ -27,6 +27,7 @@
                         <span id="parent-status-text" class="text-sm font-semibold text-gray-600">Connecting...</span>
                     </div>
                 </div>
+                <div id="info-message" class="mt-2 text-sm text-red-600 font-medium hidden"></div>
             </div>
         </div>
     </div>
@@ -55,19 +56,38 @@
         let map = null;
         let busMarker = null;
 
+        // --- UI Elements ---
+        const statusText = document.getElementById('parent-status-text');
+        const statusIndicator = document.getElementById('parent-status-indicator');
+        const infoMessage = document.getElementById('info-message');
+
         // --- App Initialization ---
         async function initializeParentApp() {
+            // Check for placeholder config
+            if (firebaseConfig.apiKey === "YOUR_API_KEY" || !firebaseConfig.apiKey) {
+                statusText.textContent = 'Configuration Needed';
+                statusIndicator.className = 'h-3 w-3 rounded-full bg-orange-500';
+                infoMessage.textContent = 'Please replace the placeholder Firebase config in the HTML file with your own project credentials.';
+                infoMessage.classList.remove('hidden');
+                console.warn("Firebase config is a placeholder. Please update it.");
+                return; // Stop initialization
+            }
+
             try {
+                infoMessage.classList.add('hidden'); // Hide message on successful try
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
+                statusText.textContent = "Authenticating...";
                 await signInAnonymously(auth);
                 console.log("Firebase Authenticated Anonymously.");
                 initializeParentView(); // Initialize map and listener after auth
             } catch (error) {
                 console.error("CRITICAL: Firebase Init or Auth Failed!", error);
-                document.getElementById('parent-status-text').textContent = "Connection Failed";
-                alert("Could not connect to the service. Please check the console for errors.");
+                statusText.textContent = "Connection Failed";
+                statusIndicator.className = 'h-3 w-3 rounded-full bg-red-500';
+                infoMessage.textContent = `Error: ${error.message}. Check the browser console and your Firebase setup.`;
+                infoMessage.classList.remove('hidden');
             }
         }
         
@@ -84,9 +104,6 @@
         function listenForBusLocation() {
             const busRef = doc(db, "buses", busId);
             onSnapshot(busRef, (doc) => {
-                const statusIndicator = document.getElementById('parent-status-indicator');
-                const statusText = document.getElementById('parent-status-text');
-
                 if (doc.exists()) {
                     const data = doc.data();
                     
@@ -119,6 +136,12 @@
                     statusText.textContent = 'Waiting for data';
                     statusIndicator.className = 'h-3 w-3 rounded-full bg-gray-400';
                 }
+            }, (error) => {
+                console.error("Firestore snapshot error:", error);
+                statusText.textContent = "Data Error";
+                statusIndicator.className = 'h-3 w-3 rounded-full bg-red-500';
+                infoMessage.textContent = "Could not fetch bus location. Check Firestore rules.";
+                infoMessage.classList.remove('hidden');
             });
         }
 
@@ -127,3 +150,5 @@
     </script>
 </body>
 </html>
+
+
