@@ -1,44 +1,114 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live GPS Tracker - Parent</title>
+    <title>Live Bus Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; }
-        #map { height: 100vh; width: 100vw; z-index: 10; }
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100vw;
+            z-index: 10;
+            background-color: #e5e7eb;
+        }
+
+        .leaflet-control-attribution,
+        .leaflet-control-zoom {
+            display: none;
+        }
+
+        .pulse {
+            animation: pulse-animation 2s infinite;
+        }
+
+        @keyframes pulse-animation {
+            0% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+            }
+
+            70% {
+                box-shadow: 0 0 0 12px rgba(34, 197, 94, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+            }
+        }
+
+        /* Style for the custom emoji icons */
+        .emoji-icon {
+            font-size: 32px;
+            text-align: center;
+            line-height: 40px;
+            /* Optional: Add a subtle background to make it stand out */
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 50%;
+            backdrop-filter: blur(2px);
+        }
     </style>
 </head>
+
 <body class="bg-gray-100">
 
-    <!-- Parent/Tracker View -->
-    <div id="parent-view">
-        <div id="map"></div>
-        <div class="absolute top-4 left-1/2 -translate-x-1/2 z-20 w-11/12 max-w-sm">
-            <div class="bg-white rounded-xl shadow-lg p-4 border border-gray-200">
-                <div class="flex items-center justify-between">
+    <div id="map"></div>
+
+    <div class="absolute top-4 left-1/2 -translate-x-1/2 z-20 w-11/12 max-w-md">
+        <div class="bg-white rounded-xl shadow-2xl p-4 border border-gray-200">
+            <div class="flex items-center justify-between">
+                <div>
                     <h1 class="text-lg font-bold text-gray-800">Live Bus Tracker</h1>
-                    <div class="flex items-center space-x-2">
-                        <span id="parent-status-indicator" class="h-3 w-3 rounded-full bg-gray-400"></span>
-                        <span id="parent-status-text" class="text-sm font-semibold text-gray-600">Connecting...</span>
-                    </div>
+                    <p class="text-xs text-gray-500">Bus ID: <span class="font-medium">BUS-42</span></p>
                 </div>
-                <div id="info-message" class="mt-2 text-sm text-red-600 font-medium hidden"></div>
+                <div class="text-right">
+                    <div class="flex items-center justify-end space-x-2">
+                        <span id="status-indicator" class="h-3 w-3 rounded-full bg-gray-400"></span>
+                        <span id="status-text" class="text-sm font-semibold text-gray-600">Initializing...</span>
+                    </div>
+                    <p id="last-update" class="text-xs text-gray-400 mt-1">Awaiting signal...</p>
+                </div>
             </div>
         </div>
     </div>
 
+    <div class="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 w-11/12 max-w-md">
+        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-2xl p-4 border border-gray-200 text-center">
+            <h2 class="font-bold text-gray-700 mb-2">Bus Simulator</h2>
+            <p id="sim-status" class="text-sm text-gray-600 mb-4">Press 'Start' to see the tracker in action.</p>
+            <div class="flex justify-center space-x-4">
+                <button id="start-sim-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition shadow-md">Start</button>
+                <button id="stop-sim-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition shadow-md" disabled>Stop</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="error-overlay" class="hidden absolute inset-0 z-30 bg-black/60 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl p-6 border-4 border-red-300 max-w-sm text-center">
+            <h2 class="text-xl font-bold text-red-600 mb-2">Connection Failed</h2>
+            <p class="text-gray-700 mb-4">The app could not connect to the backend. This is usually caused by an
+                incorrect Firebase configuration.</p>
+            <p class="text-sm text-gray-500">Go to your Firebase project, copy the configuration object, and paste it
+                into the `index.html` file.</p>
+        </div>
+    </div>
+
     <script type="module">
-        // Import Firebase modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // ============== PASTE YOUR FIREBASE CONFIG HERE ==============
+        // =============================================================
+        //  1. PASTE YOUR FIREBASE CONFIGURATION OBJECT HERE
+        // =============================================================
         const firebaseConfig = {
             apiKey: "AIzaSyAySXFbhyajAE7qcSyjGRcbF8jejG2GAFw",
             authDomain: "appify-3b358.firebaseapp.com",
@@ -50,105 +120,133 @@
         };
         // =============================================================
 
+        // =============================================================
+        //  2. SET YOUR SCHOOL'S LOCATION AND NAME HERE
+        // =============================================================
+        const schoolConfig = {
+            name: "APPIFY STUDIO",
+            location: { lat: 26.513132488755478, lng: 91.7458 }
+        };
+        // =============================================================
+
         // --- Global Variables ---
         const busId = "BUS-42";
-        let db, auth;
-        let map = null;
-        let busMarker = null;
+        let db, map, busMarker, simulatorIntervalId;
+        let currentSimCoords = { lat: 26.513132488755478, lng: 91.7362 };
 
         // --- UI Elements ---
-        const statusText = document.getElementById('parent-status-text');
-        const statusIndicator = document.getElementById('parent-status-indicator');
-        const infoMessage = document.getElementById('info-message');
+        const ui = {
+            statusText: document.getElementById('status-text'),
+            statusIndicator: document.getElementById('status-indicator'),
+            lastUpdate: document.getElementById('last-update'),
+            startSimBtn: document.getElementById('start-sim-btn'),
+            stopSimBtn: document.getElementById('stop-sim-btn'),
+            simStatus: document.getElementById('sim-status'),
+            errorOverlay: document.getElementById('error-overlay'),
+        };
 
-        // --- App Initialization ---
-        async function initializeParentApp() {
-            // Check for placeholder config
-            if (firebaseConfig.apiKey === "YOUR_API_KEY" || !firebaseConfig.apiKey) {
-                statusText.textContent = 'Configuration Needed';
-                statusIndicator.className = 'h-3 w-3 rounded-full bg-orange-500';
-                infoMessage.textContent = 'Please replace the placeholder Firebase config in the HTML file with your own project credentials.';
-                infoMessage.classList.remove('hidden');
-                console.warn("Firebase config is a placeholder. Please update it.");
-                return; // Stop initialization
-            }
-
+        async function initApp() {
             try {
-                infoMessage.classList.add('hidden'); // Hide message on successful try
+                ui.statusText.textContent = 'Connecting...';
                 const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
                 db = getFirestore(app);
-                statusText.textContent = "Authenticating...";
+                const auth = getAuth(app);
                 await signInAnonymously(auth);
-                console.log("Firebase Authenticated Anonymously.");
-                initializeParentView(); // Initialize map and listener after auth
+                initMapView();
+                listenForBusLocation();
+                setupSimulatorControls();
             } catch (error) {
-                console.error("CRITICAL: Firebase Init or Auth Failed!", error);
-                statusText.textContent = "Connection Failed";
-                statusIndicator.className = 'h-3 w-3 rounded-full bg-red-500';
-                infoMessage.textContent = `Error: ${error.message}. Check the browser console and your Firebase setup.`;
-                infoMessage.classList.remove('hidden');
+                console.error("Firebase Init Failed!", error);
+                ui.statusText.textContent = 'Connection Failed';
+                ui.errorOverlay.classList.remove('hidden');
             }
         }
-        
-        // --- Parent/Tracker Logic ---
-        function initializeParentView() {
-            if (map) return; // Initialize only once
 
-            map = L.map('map').setView([26.1445, 91.7362], 13); // Default view (Guwahati, Assam)
+        function initMapView() {
+            if (map) return;
+            map = L.map('map').setView([schoolConfig.location.lat, schoolConfig.location.lng], 14);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
             
-            listenForBusLocation();
+            // Add a permanent marker for the school using a DivIcon
+            const schoolIcon = L.divIcon({
+                html: '🏫',
+                className: 'emoji-icon',
+                iconSize: [40, 40],
+                iconAnchor: [20, 40],
+                popupAnchor: [0, -40],
+            });
+            L.marker([schoolConfig.location.lat, schoolConfig.location.lng], { icon: schoolIcon })
+                .addTo(map)
+                .bindPopup(`<b>${schoolConfig.name}</b>`)
+                .openPopup();
+
+            ui.statusText.textContent = 'Listening...';
         }
 
         function listenForBusLocation() {
             const busRef = doc(db, "buses", busId);
-            onSnapshot(busRef, (doc) => {
-                if (doc.exists()) {
-                    const data = doc.data();
-                    
-                    // Update status text and indicator
-                    statusIndicator.className = 'h-3 w-3 rounded-full';
-                    if (data.status === 'en-route') {
-                        statusText.textContent = 'En Route';
-                        statusIndicator.classList.add('bg-green-500', 'animate-pulse');
-                    } else {
-                        statusText.textContent = 'Offline';
-                        statusIndicator.classList.add('bg-red-500');
-                    }
+            onSnapshot(busRef, (doc) => updateUI(doc.exists() ? doc.data() : null));
+        }
+        
+        function updateUI(data) {
+            if (data && data.status === 'en-route' && data.lat && data.lng) {
+                ui.statusText.textContent = 'En Route';
+                ui.statusIndicator.className = 'h-3 w-3 rounded-full bg-green-500 pulse';
+                ui.lastUpdate.textContent = `Updated: ${data.lastUpdate.toDate().toLocaleTimeString()}`;
 
-                    // Update map marker
-                    if (data.status === 'en-route' && data.lat && data.lng) {
-                        const newPosition = [data.lat, data.lng];
-                        const busIcon = L.icon({
-                            iconUrl: 'https://placehold.co/40x40/facc15/000000?text=BUS&font=inter',
-                            iconSize: [40, 40], iconAnchor: [20, 20],
-                        });
-                        if (!busMarker) {
-                            busMarker = L.marker(newPosition, { icon: busIcon }).addTo(map);
-                            map.setView(newPosition, 16);
-                        } else {
-                            busMarker.setLatLng(newPosition);
-                            map.panTo(newPosition);
-                        }
-                    }
+                const busPosition = [data.lat, data.lng];
+                // Use a school bus emoji for the bus marker using a DivIcon
+                const busIcon = L.divIcon({
+                    html: '🚌',
+                    className: 'emoji-icon',
+                    iconSize: [40, 40],
+                    iconAnchor: [20, 20],
+                });
+
+                if (!busMarker) {
+                    busMarker = L.marker(busPosition, { icon: busIcon }).addTo(map);
+                    map.setView(busPosition, 16);
                 } else {
-                    statusText.textContent = 'Waiting for data';
-                    statusIndicator.className = 'h-3 w-3 rounded-full bg-gray-400';
+                    busMarker.setLatLng(busPosition);
+                    map.panTo(busPosition, { animate: true, duration: 1 });
                 }
-            }, (error) => {
-                console.error("Firestore snapshot error:", error);
-                statusText.textContent = "Data Error";
-                statusIndicator.className = 'h-3 w-3 rounded-full bg-red-500';
-                infoMessage.textContent = "Could not fetch bus location. Check Firestore rules.";
-                infoMessage.classList.remove('hidden');
+            } else {
+                ui.statusText.textContent = 'Offline';
+                ui.statusIndicator.className = 'h-3 w-3 rounded-full bg-red-500';
+                ui.lastUpdate.textContent = 'Waiting for bus to start trip.';
+            }
+        }
+        
+        function setupSimulatorControls() {
+            ui.startSimBtn.addEventListener('click', startSimulator);
+            ui.stopSimBtn.addEventListener('click', stopSimulator);
+        }
+
+        function startSimulator() {
+            ui.startSimBtn.disabled = true; ui.stopSimBtn.disabled = false;
+            ui.simStatus.textContent = "Simulation is running...";
+            updateSimulatedLocation(); 
+            simulatorIntervalId = setInterval(updateSimulatedLocation, 3000);
+        }
+
+        async function stopSimulator() {
+            ui.startSimBtn.disabled = false; ui.stopSimBtn.disabled = true;
+            ui.simStatus.textContent = "Simulation stopped.";
+            if (simulatorIntervalId) clearInterval(simulatorIntervalId);
+            await setDoc(doc(db, "buses", busId), { status: 'offline', lastUpdate: serverTimestamp() }, { merge: true });
+        }
+        
+        async function updateSimulatedLocation() {
+            currentSimCoords.lat += (Math.random() - 0.5) * 0.001;
+            currentSimCoords.lng += (Math.random() - 0.5) * 0.001;
+            await setDoc(doc(db, "buses", busId), {
+                lat: currentSimCoords.lat, lng: currentSimCoords.lng,
+                status: 'en-route', lastUpdate: serverTimestamp()
             });
         }
 
-        // --- Initialize the app ---
-        initializeParentApp();
+        document.addEventListener('DOMContentLoaded', initApp);
     </script>
 </body>
+
 </html>
-
-
