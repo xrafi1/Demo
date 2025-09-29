@@ -18,15 +18,14 @@
             70% { box-shadow: 0 0 0 12px rgba(34, 197, 94, 0); }
             100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
         }
-        /* Style for the custom emoji icons */
         .emoji-icon {
             font-size: 32px;
             text-align: center;
             line-height: 40px;
-            /* Optional: Add a subtle background to make it stand out */
-            background: rgba(255, 255, 255, 0.7);
+            background: rgba(255, 255, 255, 0.8);
             border-radius: 50%;
             backdrop-filter: blur(2px);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
         }
     </style>
 </head>
@@ -49,16 +48,9 @@
                     <p id="last-update" class="text-xs text-gray-400 mt-1">Awaiting signal...</p>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <div class="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 w-11/12 max-w-md">
-        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-2xl p-4 border border-gray-200 text-center">
-            <h2 class="font-bold text-gray-700 mb-2">Bus Simulator</h2>
-            <p id="sim-status" class="text-sm text-gray-600 mb-4">Press 'Start' to see the tracker in action.</p>
-            <div class="flex justify-center space-x-4">
-                <button id="start-sim-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition shadow-md">Start</button>
-                <button id="stop-sim-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition shadow-md" disabled>Stop</button>
+            <div class="flex items-center space-x-2 mt-3 pt-3 border-t">
+                 <button id="recenter-school-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold py-2 px-3 rounded-lg transition shadow">Center on School</button>
+                 <button id="find-bus-btn" class="w-full bg-gray-300 text-gray-500 text-xs font-bold py-2 px-3 rounded-lg transition shadow cursor-not-allowed" disabled>Find Bus</button>
             </div>
         </div>
     </div>
@@ -66,68 +58,59 @@
     <div id="error-overlay" class="hidden absolute inset-0 z-30 bg-black/60 flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl p-6 border-4 border-red-300 max-w-sm text-center">
             <h2 class="text-xl font-bold text-red-600 mb-2">Connection Failed</h2>
-            <p class="text-gray-700 mb-4">The app could not connect to the backend. This is usually caused by an incorrect Firebase configuration.</p>
-            <p class="text-sm text-gray-500">Go to your Firebase project, copy the configuration object, and paste it into the `index.html` file.</p>
+            <p id="error-message" class="text-gray-700">The app could not connect to the backend.</p>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // =============================================================
-        //  1. PASTE YOUR FIREBASE CONFIGURATION OBJECT HERE
-        // =============================================================
-        const firebaseConfig = {
-            apiKey: "AIzaSyAySXFbhyajAE7qcSyjGRcbF8jejG2GAFw",
-            authDomain: "appify-3b358.firebaseapp.com",
-            projectId: "appify-3b358",
-            storageBucket: "appify-3b358.appspot.com",
-            messagingSenderId: "1040554600495",
-            appId: "1:1040554600495:web:71afd390d47d562a333eda",
-            measurementId: "G-4WH3BW00XN"
-        };
-        // =============================================================
-
-        // =============================================================
-        //  2. SET YOUR SCHOOL'S LOCATION AND NAME HERE
-        // =============================================================
         const schoolConfig = {
             name: "St. Albert's School, Bongaigaon",
-            location: { lat: 26.513118199746334, lng: 90.96186664418089 }
+            location: { lat: 26.513118, lng: 90.961866 }
         };
-        // =============================================================
 
-        // --- Global Variables ---
         const busId = "BUS-42";
-        let db, map, busMarker, simulatorIntervalId;
-        let currentSimCoords = { lat: 26.47, lng: 90.56 }; // Starting point near Bongaigaon
-
-        // --- UI Elements ---
+        let db, map, busMarker, schoolMarker;
+        
         const ui = {
             statusText: document.getElementById('status-text'),
             statusIndicator: document.getElementById('status-indicator'),
             lastUpdate: document.getElementById('last-update'),
-            startSimBtn: document.getElementById('start-sim-btn'),
-            stopSimBtn: document.getElementById('stop-sim-btn'),
-            simStatus: document.getElementById('sim-status'),
             errorOverlay: document.getElementById('error-overlay'),
+            errorMessage: document.getElementById('error-message'),
+            findBusBtn: document.getElementById('find-bus-btn'),
+            recenterSchoolBtn: document.getElementById('recenter-school-btn'),
         };
 
         async function initApp() {
             try {
-                ui.statusText.textContent = 'Connecting...';
+                // Use environment variables for Firebase config for security
+                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+                 if (!firebaseConfig) {
+                    throw new Error("Firebase configuration is missing.");
+                }
+
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 const auth = getAuth(app);
-                await signInAnonymously(auth);
+
+                if (typeof __initial_auth_token !== 'undefined') {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                console.log("Firebase Authenticated.");
                 initMapView();
                 listenForBusLocation();
-                setupSimulatorControls();
+                setupControls();
             } catch (error) {
                 console.error("Firebase Init Failed!", error);
                 ui.statusText.textContent = 'Connection Failed';
+                ui.errorMessage.textContent = `Error: ${error.message}. Please check the console.`;
                 ui.errorOverlay.classList.remove('hidden');
             }
         }
@@ -137,15 +120,8 @@
             map = L.map('map').setView([schoolConfig.location.lat, schoolConfig.location.lng], 14);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
             
-            // Add a permanent marker for the school using a DivIcon
-            const schoolIcon = L.divIcon({
-                html: '🏫',
-                className: 'emoji-icon',
-                iconSize: [40, 40],
-                iconAnchor: [20, 40],
-                popupAnchor: [0, -40],
-            });
-            L.marker([schoolConfig.location.lat, schoolConfig.location.lng], { icon: schoolIcon })
+            const schoolIcon = L.divIcon({ html: '🏫', className: 'emoji-icon', iconSize: [40, 40], iconAnchor: [20, 40], popupAnchor: [0, -40] });
+            schoolMarker = L.marker([schoolConfig.location.lat, schoolConfig.location.lng], { icon: schoolIcon })
                 .addTo(map)
                 .bindPopup(`<b>${schoolConfig.name}</b>`)
                 .openPopup();
@@ -155,63 +131,58 @@
 
         function listenForBusLocation() {
             const busRef = doc(db, "buses", busId);
-            onSnapshot(busRef, (doc) => updateUI(doc.exists() ? doc.data() : null));
+            onSnapshot(busRef, (doc) => {
+                updateUIWithBusData(doc.exists() ? doc.data() : null);
+            });
         }
         
-        function updateUI(data) {
-            if (data && data.status === 'en-route' && data.lat && data.lng) {
+        function updateUIWithBusData(data) {
+            const busIsOnline = data && data.status === 'en-route' && data.lat && data.lng;
+
+            if (busIsOnline) {
                 ui.statusText.textContent = 'En Route';
                 ui.statusIndicator.className = 'h-3 w-3 rounded-full bg-green-500 pulse';
                 ui.lastUpdate.textContent = `Updated: ${data.lastUpdate.toDate().toLocaleTimeString()}`;
+                
+                ui.findBusBtn.disabled = false;
+                ui.findBusBtn.classList.remove('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
+                ui.findBusBtn.classList.add('bg-yellow-500', 'hover:bg-yellow-600', 'text-black');
 
                 const busPosition = [data.lat, data.lng];
-                // Use a school bus emoji for the bus marker using a DivIcon
-                const busIcon = L.divIcon({
-                    html: '🚌',
-                    className: 'emoji-icon',
-                    iconSize: [40, 40],
-                    iconAnchor: [20, 20],
-                });
+                const busIcon = L.divIcon({ html: '🚌', className: 'emoji-icon', iconSize: [40, 40], iconAnchor: [20, 20] });
 
                 if (!busMarker) {
                     busMarker = L.marker(busPosition, { icon: busIcon }).addTo(map);
-                    map.setView(busPosition, 16);
+                    map.flyTo(busPosition, 16, { duration: 2 });
                 } else {
                     busMarker.setLatLng(busPosition);
-                    map.panTo(busPosition, { animate: true, duration: 1 });
+                    if (map.getBounds().contains(busMarker.getLatLng())) {
+                        map.panTo(busPosition, { animate: true, duration: 1 });
+                    }
                 }
             } else {
                 ui.statusText.textContent = 'Offline';
                 ui.statusIndicator.className = 'h-3 w-3 rounded-full bg-red-500';
-                ui.lastUpdate.textContent = 'Waiting for bus to start trip.';
+                ui.lastUpdate.textContent = 'Bus is currently offline.';
+                
+                ui.findBusBtn.disabled = true;
+                ui.findBusBtn.classList.add('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
+                ui.findBusBtn.classList.remove('bg-yellow-500', 'hover:bg-yellow-600', 'text-black');
+
+                // If bus goes offline, remove the marker from the map
+                if (busMarker) {
+                    busMarker.remove();
+                    busMarker = null;
+                }
             }
         }
         
-        function setupSimulatorControls() {
-            ui.startSimBtn.addEventListener('click', startSimulator);
-            ui.stopSimBtn.addEventListener('click', stopSimulator);
-        }
-
-        function startSimulator() {
-            ui.startSimBtn.disabled = true; ui.stopSimBtn.disabled = false;
-            ui.simStatus.textContent = "Simulation is running...";
-            updateSimulatedLocation(); 
-            simulatorIntervalId = setInterval(updateSimulatedLocation, 3000);
-        }
-
-        async function stopSimulator() {
-            ui.startSimBtn.disabled = false; ui.stopSimBtn.disabled = true;
-            ui.simStatus.textContent = "Simulation stopped.";
-            if (simulatorIntervalId) clearInterval(simulatorIntervalId);
-            await setDoc(doc(db, "buses", busId), { status: 'offline', lastUpdate: serverTimestamp() }, { merge: true });
-        }
-        
-        async function updateSimulatedLocation() {
-            currentSimCoords.lat += (Math.random() - 0.5) * 0.001;
-            currentSimCoords.lng += (Math.random() - 0.5) * 0.001;
-            await setDoc(doc(db, "buses", busId), {
-                lat: currentSimCoords.lat, lng: currentSimCoords.lng,
-                status: 'en-route', lastUpdate: serverTimestamp()
+        function setupControls() {
+            ui.findBusBtn.addEventListener('click', () => {
+                if (busMarker) map.flyTo(busMarker.getLatLng(), 16, { duration: 1.5 });
+            });
+            ui.recenterSchoolBtn.addEventListener('click', () => {
+                if (schoolMarker) map.flyTo(schoolMarker.getLatLng(), 14, { duration: 1.5 });
             });
         }
 
